@@ -1,0 +1,7 @@
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+plan.bin
+*.tfplan
+terraform/modules/backend/*.zip

@@ -1,0 +1,90 @@
+name: Terraform Apply Composite
+description: Terraform apply with shared configuration
+inputs:
+  tf_workdir:
+    description: Terraform working directory
+    required: true
+  aws_region:
+    description: AWS region for backend and provider
+    required: true
+  tf_state_bucket:
+    description: S3 bucket for Terraform remote state
+    required: true
+  aws_role_arn:
+    description: IAM role ARN assumed via OIDC
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+
+    - name: Configure AWS Credentials (OIDC)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws_role_arn }}
+        aws-region: ${{ inputs.aws_region }}
+
+    - name: Detect existing GitHub OIDC provider
+      shell: bash
+      run: |
+        set -euo pipefail
+        account_id=$(aws sts get-caller-identity --query Account --output text)
+        provider_arn="arn:aws:iam::${account_id}:oidc-provider/token.actions.githubusercontent.com"
+
+        if aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$provider_arn" >/dev/null 2>&1; then
+          echo "Detected existing provider: $provider_arn"
+          echo "TF_VAR_existing_github_oidc_provider_arn=$provider_arn" >> "$GITHUB_ENV"
+        else
+          echo "No existing GitHub OIDC provider found; Terraform will create one."
+        fi
+
+    - name: Terraform Init
+      shell: bash
+      working-directory: ${{ inputs.tf_workdir }}
+      run: |
+        set -euo pipefail
+        TF_STATE_BUCKET_VALUE="${TF_STATE_BUCKET:-${{ inputs.tf_state_bucket }}}"
+        TF_STATE_KEY_VALUE="${TF_STATE_KEY:-terraform.tfstate}"
+
+        if [ -z "${TF_STATE_BUCKET_VALUE}" ]; then
+          echo "TF_STATE_BUCKET input is required for remote state." >&2
+          exit 1
+        fi
+        if [ -z "${TF_STATE_KEY_VALUE}" ]; then
+          echo "TF_STATE_KEY input is required for remote state." >&2
+          exit 1
+        fi
+
+        terraform init -input=false \
+          -backend-config="bucket=${TF_STATE_BUCKET_VALUE}" \
+          -backend-config="key=${TF_STATE_KEY_VALUE}" \
+          -backend-config="region=${{ inputs.aws_region }}"
+
+    - name: Terraform Fmt
+      shell: bash
+      working-directory: ${{ inputs.tf_workdir }}
+      run: terraform fmt -check
+
+    - name: Terraform Validate
+      shell: bash
+      working-directory: ${{ inputs.tf_workdir }}
+      run: terraform validate
+
+    - name: Terraform Apply
+      shell: bash
+      working-directory: ${{ inputs.tf_workdir }}
+      run: |
+        set -euo pipefail
+        if [ ! -f tfplan ]; then
+          echo "Terraform plan file (tfplan) not found. Run plan first." >&2
+          exit 1
+        fi
+
+        if [ -f tfplan.json ] && jq -e '.resource_changes | length == 0' tfplan.json >/dev/null; then
+          echo "Terraform: No changes to apply."
+          exit 0
+        fi
+
+        terraform show -no-color tfplan
+        terraform apply -input=false tfplan

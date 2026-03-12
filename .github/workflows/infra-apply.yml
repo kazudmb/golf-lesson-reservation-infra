@@ -1,0 +1,116 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infra-apply.yml'
+  pull_request:
+    types: [closed]
+    branches:
+      - stg
+      - prd
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/infra-apply.yml'
+  workflow_dispatch:
+
+jobs:
+  plan:
+    # PRはマージされたときのみ実行（閉じられただけのPRでは実行しない）
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    environment: >-
+      ${{ github.event_name == 'workflow_dispatch' && 'dev'
+          || github.event_name == 'pull_request' && github.event.pull_request.base.ref
+          || github.ref_name == 'main' && 'dev'
+          || github.ref_name }}
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      env_name: ${{ steps.resolve_env.outputs.env_name }}
+      tf_workdir: ${{ steps.resolve_env.outputs.tf_workdir }}
+    steps:
+      - name: Resolve target environment
+        id: resolve_env
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          case "${EVENT_NAME}" in
+            workflow_dispatch) target="main" ;;
+            pull_request)      target="${BASE_REF}" ;;
+            *)                 target="${REF_NAME}" ;;
+          esac
+
+          case "${target}" in
+            main) env_name="dev"; tf_workdir="terraform/app/dev" ;;
+            stg)  env_name="stg"; tf_workdir="terraform/app/stg" ;;
+            prd)  env_name="prd"; tf_workdir="terraform/app/prd" ;;
+            *)
+              echo "Unsupported target environment: ${target}" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "env_name=${env_name}" >> "$GITHUB_OUTPUT"
+          echo "tf_workdir=${tf_workdir}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Terraform Plan Pipeline
+        uses: ./.github/actions/terraform-plan
+        with:
+          tf_workdir: ${{ steps.resolve_env.outputs.tf_workdir }}
+          aws_region: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          tf_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ steps.resolve_env.outputs.env_name }}
+          path: |
+            ${{ steps.resolve_env.outputs.tf_workdir }}/tfplan
+            ${{ steps.resolve_env.outputs.tf_workdir }}/tfplan.json
+            ${{ steps.resolve_env.outputs.tf_workdir }}/tfplan.txt
+
+  apply:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: >-
+      ${{ github.event_name == 'workflow_dispatch' && 'dev'
+          || github.event_name == 'pull_request' && github.event.pull_request.base.ref
+          || github.ref_name == 'main' && 'dev'
+          || github.ref_name }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ needs.plan.outputs.env_name }}
+          path: ${{ needs.plan.outputs.tf_workdir }}
+
+      - name: Terraform Apply Pipeline
+        uses: ./.github/actions/terraform-apply
+        with:
+          tf_workdir: ${{ needs.plan.outputs.tf_workdir }}
+          aws_region: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+          tf_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
