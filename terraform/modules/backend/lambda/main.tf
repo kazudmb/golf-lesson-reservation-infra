@@ -65,6 +65,8 @@ resource "aws_lambda_function" "post_golf_lesson_reservation" {
   handler       = "main.handler"
   runtime       = var.lambda_runtime
 
+  depends_on = [data.archive_file.post_golf_lesson_reservation_placeholder]
+
   filename         = local.post_golf_lesson_reservation_package_path
   source_code_hash = local.post_golf_lesson_reservation_package_hash
 
@@ -84,6 +86,8 @@ resource "aws_lambda_function" "get_golf_lesson_reservations" {
   role          = var.lambda_role_arn
   handler       = "main.handler"
   runtime       = var.lambda_runtime
+
+  depends_on = [data.archive_file.get_golf_lesson_reservations_placeholder]
 
   filename         = local.get_golf_lesson_reservations_package_path
   source_code_hash = local.get_golf_lesson_reservations_package_hash
@@ -105,6 +109,8 @@ resource "aws_lambda_function" "get_golf_lesson_reservation_exports" {
   handler       = "main.handler"
   runtime       = var.lambda_runtime
 
+  depends_on = [data.archive_file.get_golf_lesson_reservation_exports_placeholder]
+
   filename         = local.get_golf_lesson_reservation_exports_package_path
   source_code_hash = local.get_golf_lesson_reservation_exports_package_hash
 
@@ -124,6 +130,8 @@ resource "aws_lambda_function" "get_employees" {
   role          = var.lambda_role_arn
   handler       = "main.handler"
   runtime       = var.lambda_runtime
+
+  depends_on = [data.archive_file.get_employees_placeholder]
 
   filename         = local.get_employees_package_path
   source_code_hash = local.get_employees_package_hash
