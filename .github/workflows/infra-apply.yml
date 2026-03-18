@@ -83,6 +83,24 @@ jobs:
             ${{ steps.resolve_env.outputs.tf_workdir }}/tfplan.json
             ${{ steps.resolve_env.outputs.tf_workdir }}/tfplan.txt
 
+      - name: Package Lambda Placeholder ZIPs
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(terraform/modules/backend/lambda/*_placeholder.zip)
+
+          if [ ${#files[@]} -eq 0 ]; then
+            tar -czf lambda-placeholders.tar.gz --files-from /dev/null
+          else
+            tar -czf lambda-placeholders.tar.gz "${files[@]}"
+          fi
+
+      - name: Upload Lambda Placeholder ZIPs
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-placeholders-${{ steps.resolve_env.outputs.env_name }}
+          path: lambda-placeholders.tar.gz
+
   apply:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     needs: plan
@@ -106,6 +124,17 @@ jobs:
         with:
           name: tfplan-${{ needs.plan.outputs.env_name }}
           path: ${{ needs.plan.outputs.tf_workdir }}
+
+      - name: Download Lambda Placeholder ZIPs
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-placeholders-${{ needs.plan.outputs.env_name }}
+          path: .
+
+      - name: Restore Lambda Placeholder ZIPs
+        run: |
+          set -euo pipefail
+          tar -xzf lambda-placeholders.tar.gz
 
       - name: Terraform Apply Pipeline
         uses: ./.github/actions/terraform-apply
