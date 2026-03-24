@@ -9,8 +9,10 @@ locals {
 }
 
 module "backend" {
-  source  = "./modules/backend"
-  project = local.project
+  source                 = "./modules/backend"
+  project                = local.project
+  artifact_bucket_name   = local.artifact_bucket_name
+  create_artifact_bucket = var.create_artifact_bucket
 }
 
 module "cognito" {
@@ -64,8 +66,8 @@ data "aws_iam_policy_document" "github_backend_ci" {
       "s3:ListBucket"
     ]
     resources = [
-      "arn:aws:s3:::${local.artifact_bucket_name}",
-      "arn:aws:s3:::${local.artifact_bucket_name}/*"
+      module.backend.artifact_bucket_arn,
+      "${module.backend.artifact_bucket_arn}/*"
     ]
   }
 }

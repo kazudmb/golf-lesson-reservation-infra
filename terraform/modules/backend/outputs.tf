@@ -23,6 +23,16 @@ output "api_endpoint" {
   description = "Base URL of the HTTP API"
 }
 
+output "artifact_bucket_name" {
+  value       = var.artifact_bucket_name
+  description = "S3 bucket name for backend deployment artifacts"
+}
+
+output "artifact_bucket_arn" {
+  value       = "arn:aws:s3:::${var.artifact_bucket_name}"
+  description = "ARN of the backend deployment artifact bucket"
+}
+
 output "post_golf_lesson_reservation_lambda_function_name" {
   value       = module.lambda.post_golf_lesson_reservation_lambda_function_name
   description = "Lambda function name for POST /employees/{employeeId}/golf-lesson-reservations"

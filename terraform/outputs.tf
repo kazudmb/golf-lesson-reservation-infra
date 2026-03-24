@@ -30,3 +30,8 @@ output "gha_backend_role_arn" {
   value       = module.github_oidc.gha_backend_role_arn
   description = "GitHub Actions backend deploy IAM Role ARN"
 }
+
+output "artifact_bucket_name" {
+  value       = module.backend.artifact_bucket_name
+  description = "S3 bucket name for backend deployment artifacts"
+}

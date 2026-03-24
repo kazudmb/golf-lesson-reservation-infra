@@ -16,6 +16,12 @@ variable "artifact_bucket_name" {
   default     = null
 }
 
+variable "create_artifact_bucket" {
+  description = "When true, create and manage the backend deployment artifact bucket in this stack"
+  type        = bool
+  default     = true
+}
+
 variable "enable_cognito" {
   description = "Enable Cognito User Pool for auth"
   type        = bool
