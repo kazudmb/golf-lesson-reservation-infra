@@ -1,5 +1,6 @@
-output "api_base_url" {
-  value = module.backend.api_endpoint
+output "auto_reserve_lesson_lambda_function_name" {
+  value       = module.backend.auto_reserve_lesson_lambda_function_name
+  description = "Lambda function name for auto_reserve_lesson"
 }
 
 output "dynamodb_table" {

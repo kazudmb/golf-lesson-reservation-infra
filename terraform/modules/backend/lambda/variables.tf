@@ -13,11 +13,6 @@ variable "lambda_role_arn" {
   type        = string
 }
 
-variable "lambda_role_name" {
-  description = "IAM role name for Lambda"
-  type        = string
-}
-
 variable "lambda_runtime" {
   description = "Python runtime for Lambda functions"
   type        = string
