@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 data "aws_iam_policy_document" "lambda_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -42,4 +44,25 @@ resource "aws_iam_policy" "ddb_rw" {
 resource "aws_iam_role_policy_attachment" "ddb_rw_attach" {
   role       = aws_iam_role.lambda_role.name
   policy_arn = aws_iam_policy.ddb_rw.arn
+}
+
+data "aws_iam_policy_document" "secretsmanager_read" {
+  statement {
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      "arn:aws:secretsmanager:ap-northeast-1:${data.aws_caller_identity.current.account_id}:secret:auto-reserve-lesson/credentials*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "secretsmanager_read" {
+  name   = "${var.project}-secretsmanager-read"
+  policy = data.aws_iam_policy_document.secretsmanager_read.json
+}
+
+resource "aws_iam_role_policy_attachment" "secretsmanager_read_attach" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = aws_iam_policy.secretsmanager_read.arn
 }
