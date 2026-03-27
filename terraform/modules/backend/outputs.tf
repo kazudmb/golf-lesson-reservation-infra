@@ -18,6 +18,11 @@ output "lambda_role_name" {
   description = "IAM role name used by the Lambda functions"
 }
 
+output "scheduler_invoke_lambda_role_arn" {
+  value       = module.iam.scheduler_invoke_lambda_role_arn
+  description = "IAM role ARN used by EventBridge Scheduler to invoke Lambda"
+}
+
 output "artifact_bucket_name" {
   value       = var.artifact_bucket_name
   description = "S3 bucket name for backend deployment artifacts"

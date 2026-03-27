@@ -12,3 +12,8 @@ output "ddb_policy_arn" {
   value       = aws_iam_policy.ddb_rw.arn
   description = "DynamoDB read/write policy ARN"
 }
+
+output "scheduler_invoke_lambda_role_arn" {
+  value       = aws_iam_role.scheduler_invoke_lambda_role.arn
+  description = "IAM role ARN used by EventBridge Scheduler to invoke Lambda"
+}

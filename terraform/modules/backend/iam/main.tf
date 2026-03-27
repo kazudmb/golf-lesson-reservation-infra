@@ -1,4 +1,5 @@
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 data "aws_iam_policy_document" "lambda_assume" {
   statement {
@@ -10,9 +11,24 @@ data "aws_iam_policy_document" "lambda_assume" {
   }
 }
 
+data "aws_iam_policy_document" "scheduler_assume" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["scheduler.amazonaws.com"]
+    }
+  }
+}
+
 resource "aws_iam_role" "lambda_role" {
   name               = "${var.project}-lambda-role"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
+}
+
+resource "aws_iam_role" "scheduler_invoke_lambda_role" {
+  name               = "${var.project}-scheduler-invoke-lambda-role"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
@@ -65,4 +81,26 @@ resource "aws_iam_policy" "secretsmanager_read" {
 resource "aws_iam_role_policy_attachment" "secretsmanager_read_attach" {
   role       = aws_iam_role.lambda_role.name
   policy_arn = aws_iam_policy.secretsmanager_read.arn
+}
+
+data "aws_iam_policy_document" "scheduler_invoke_lambda" {
+  statement {
+    actions = [
+      "lambda:InvokeFunction"
+    ]
+    resources = [
+      "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:auto_reserve_lesson",
+      "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:auto_reserve_lesson:*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "scheduler_invoke_lambda" {
+  name   = "${var.project}-scheduler-invoke-lambda"
+  policy = data.aws_iam_policy_document.scheduler_invoke_lambda.json
+}
+
+resource "aws_iam_role_policy_attachment" "scheduler_invoke_lambda_attach" {
+  role       = aws_iam_role.scheduler_invoke_lambda_role.name
+  policy_arn = aws_iam_policy.scheduler_invoke_lambda.arn
 }
