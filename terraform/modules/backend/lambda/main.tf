@@ -22,6 +22,7 @@ resource "aws_lambda_function" "auto_reserve_lesson" {
   role          = var.lambda_role_arn
   handler       = "main.handler"
   runtime       = var.lambda_runtime
+  timeout       = 60
 
   depends_on = [data.archive_file.auto_reserve_lesson_placeholder]
 
